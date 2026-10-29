@@ -1,0 +1,63 @@
+# B4 (qa227, 29 Oct 2026): TC-204 valid pipeline with a configured blocking quality job
+# Rendered by agents/b4/lane.py from lanes/single-env.template.yml; edit the template, not this file.
+# Helio dispatch contract: workflow_dispatch with `environment` and `helio_execution_id` inputs, run-name echo.
+# Nothing is deployed and no secret is used.
+name: b4-ready-valid
+run-name: ${{ inputs.helio_execution_id || github.run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        required: false
+        default: b4-ready-test
+        options: [b4-ready-test]
+      helio_execution_id:
+        type: string
+        required: false
+        default: ''
+      helio_release_id:
+        type: string
+        required: false
+        default: ''
+      workflow_revision:
+        type: string
+        required: false
+        default: ''
+      release_version:
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Configured blocking quality check (fails the run if B4_QUALITY_FAIL=true)
+        shell: bash
+        env:
+          QUALITY_FAIL: ${{ vars.B4_QUALITY_FAIL }}
+        run: |
+          echo "configured quality gate"
+          test "$QUALITY_FAIL" != "true"
+
+  deploy:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: b4-ready-test
+    steps:
+      - name: Synthetic work
+        shell: bash
+        env:
+          VARS_JSON: ${{ toJSON(vars) }}
+        run: |
+          echo "b4-ready-valid run=$GITHUB_RUN_ID attempt=$GITHUB_RUN_ATTEMPT"
+          echo "B4_VARS_BEGIN"; printf '%s\n' "$VARS_JSON"; echo "B4_VARS_END"
+          sleep 20
+          echo "synthetic step passed"
